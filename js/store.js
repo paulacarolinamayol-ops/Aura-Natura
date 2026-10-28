@@ -9,11 +9,13 @@ const listeners = new Set();
 const thumbUrls = new Map();
 const coverUrls = new Map();
 const designThumbUrls = new Map();
+const assetUrls = new Map();
 
 export const state = {
   photos: [],
   pieces: [],
   designs: [],
+  feeds: [],
   promptOptions: defaultPromptOptions(),
   brand: defaultBrand(),
   logo: null,
@@ -46,6 +48,7 @@ export async function load() {
   state.photos = (await db.getAll('photos')).sort(byNewest);
   state.pieces = sortPieces(await db.getAll('pieces'));
   state.designs = sortDesigns(await db.getAll('designs'));
+  state.feeds = sortFeeds(await db.getAll('feeds'));
   state.brand = (await db.get('settings', 'brand')) || defaultBrand();
   state.lastBackup = (await db.get('settings', 'lastBackup')) || null;
   state.promptOptions = normalizePromptOptions((await db.get('settings', 'promptOptions')) || {});
@@ -203,6 +206,7 @@ export async function reload() {
   for (const id of [...thumbUrls.keys()]) forgetThumb(id);
   for (const id of [...coverUrls.keys()]) forgetCover(id);
   for (const id of [...designThumbUrls.keys()]) forgetDesignThumb(id);
+  for (const id of [...assetUrls.keys()]) forgetAsset(id);
   await load();
 }
 
@@ -289,9 +293,13 @@ function assetIds(design) {
   return design.layers.filter((l) => l.source && l.source.kind === 'asset').map((l) => l.source.id);
 }
 
-/** Imágenes propias que ya no usa ningún diseño guardado. */
-function orphanAssetKeys(candidateIds, designs) {
-  const used = new Set(designs.flatMap(assetIds));
+function feedAssetIds(feed) {
+  return feed.posts.filter((p) => p.source.kind === 'asset').map((p) => p.source.id);
+}
+
+/** Imágenes propias que ya no usa ningún diseño ni ninguna propuesta del Feed. */
+function orphanAssetKeys(candidateIds, designs = state.designs, feeds = state.feeds) {
+  const used = new Set([...designs.flatMap(assetIds), ...feeds.flatMap(feedAssetIds)]);
   return [...new Set(candidateIds)].filter((id) => !used.has(id)).map((id) => `asset:${id}`);
 }
 
@@ -343,4 +351,79 @@ function forgetDesignThumb(id) {
   const url = designThumbUrls.get(id);
   if (url) URL.revokeObjectURL(url);
   designThumbUrls.delete(id);
+}
+
+/** URL de una imagen propia (fondo del Editor o imagen suelta del Feed). */
+export async function assetUrl(id) {
+  if (assetUrls.has(id)) return assetUrls.get(id);
+  const blob = await db.get('blobs', `asset:${id}`);
+  const url = blob ? URL.createObjectURL(blob) : null;
+  assetUrls.set(id, url);
+  return url;
+}
+
+function forgetAsset(id) {
+  const url = assetUrls.get(id);
+  if (url) URL.revokeObjectURL(url);
+  assetUrls.delete(id);
+}
+
+// Feed
+
+function sortFeeds(feeds) {
+  return feeds.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+function copyFeed(feed) {
+  return {
+    ...feed,
+    posts: feed.posts.map((p) => ({ ...p, source: { ...p.source } })),
+    published: Object.fromEntries(Object.entries(feed.published || {}).map(([id, tags]) => [id, { ...tags }])),
+  };
+}
+
+export function newFeed(name = 'Propuesta sin título') {
+  const now = new Date().toISOString();
+  return { id: newId(), name, posts: [], published: {}, createdAt: now, updatedAt: now };
+}
+
+export function newPostId() {
+  return newId();
+}
+
+/**
+ * Guarda la propuesta sin redibujar la pantalla (el Feed se dibuja solo).
+ * Borra las imágenes sueltas que dejó de usar.
+ */
+export async function saveFeed(feed) {
+  const previous = state.feeds.find((f) => f.id === feed.id);
+  const saved = { ...copyFeed(feed), updatedAt: new Date().toISOString() };
+  const others = state.feeds.filter((f) => f.id !== feed.id);
+  const removed = previous ? orphanAssetKeys(feedAssetIds(previous), state.designs, [...others, saved]) : [];
+  await db.saveFeed(saved, removed);
+  for (const key of removed) forgetAsset(key.slice('asset:'.length));
+  state.feeds = sortFeeds([...others, saved]);
+  return saved;
+}
+
+export async function duplicateFeed(id) {
+  const original = state.feeds.find((f) => f.id === id);
+  if (!original) return null;
+  const copy = { ...copyFeed(original), id: newId(), name: `${original.name} (copia)`, createdAt: new Date().toISOString() };
+  copy.posts = copy.posts.map((p) => ({ ...p, id: newId() }));
+  const saved = await saveFeed(copy);
+  notify();
+  return saved;
+}
+
+export async function deleteFeed(id) {
+  const feed = state.feeds.find((f) => f.id === id);
+  if (!feed) return;
+  const others = state.feeds.filter((f) => f.id !== id);
+  const removed = orphanAssetKeys(feedAssetIds(feed), state.designs, others);
+  await db.deleteFeed(id, removed);
+  for (const key of removed) forgetAsset(key.slice('asset:'.length));
+  state.feeds = others;
+  await refreshStorage();
+  notify();
 }

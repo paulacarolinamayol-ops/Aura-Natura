@@ -7,6 +7,7 @@ import { renderOriginales } from './views/originales.js';
 import { renderBiblioteca } from './views/biblioteca.js';
 import { renderInstrucciones } from './views/instrucciones.js';
 import { renderEditor } from './views/editor.js';
+import { renderFeed } from './views/feed.js';
 import { renderRespaldo } from './views/respaldo.js';
 
 const SCREENS = {
@@ -15,20 +16,20 @@ const SCREENS = {
   biblioteca: { label: 'Biblioteca', icon: 'biblioteca', render: renderBiblioteca },
   instrucciones: { label: 'Instrucciones', icon: 'instrucciones', render: renderInstrucciones },
   editor: { label: 'Editor', icon: 'editor', render: renderEditor },
+  feed: { label: 'Feed', icon: 'feed', render: renderFeed },
   respaldo: { label: 'Respaldo', icon: 'respaldo', render: renderRespaldo },
 };
 
 // Lo que todavía no existe se muestra con su etapa y sin enlace.
-const UPCOMING = [
-  { label: 'Feed', icon: 'feed', stage: 'Etapa 5' },
-];
+const UPCOMING = [];
 
 const REMINDER_DAYS = 7;
 
-// La dirección es #pantalla o #pantalla/detalle (por ejemplo, #editor/<id del diseño>).
+// La dirección es #pantalla o #pantalla/detalle (por ejemplo, #editor/<id del diseño>
+// o #feed/comparar/<id>/<id>).
 function route() {
-  const [name, detail] = location.hash.slice(1).split('/');
-  return SCREENS[name] ? { name, detail } : { name: 'marca', detail: undefined };
+  const [name, ...rest] = location.hash.slice(1).split('/');
+  return SCREENS[name] ? { name, detail: rest.join('/') || undefined } : { name: 'marca', detail: undefined };
 }
 
 function currentScreen() {
@@ -62,7 +63,7 @@ function sidebar(screen) {
         class: 'nav-item',
         'aria-current': id === screen ? 'page' : null,
       }, icon(item.icon), el('span', {}, item.label))),
-      el('div', { class: 'nav-divider', role: 'presentation' }),
+      UPCOMING.length ? el('div', { class: 'nav-divider', role: 'presentation' }) : null,
       UPCOMING.map((item) => el('span', { class: 'nav-item nav-item-upcoming', 'aria-disabled': 'true' },
         icon(item.icon), el('span', { class: 'nav-label' }, item.label), el('span', { class: 'stage' }, item.stage)))),
     statusCard());
@@ -84,7 +85,7 @@ function statusCard() {
 }
 
 function backupReminder() {
-  const hasContent = state.photos.length > 0 || state.pieces.length > 0 || state.logo;
+  const hasContent = state.photos.length > 0 || state.pieces.length > 0 || state.designs.length > 0 || state.feeds.length > 0 || state.logo;
   if (!hasContent || daysSince(state.lastBackup) < REMINDER_DAYS || currentScreen() === 'respaldo') return null;
   return el('div', { class: 'reminder', role: 'status' },
     icon('aviso', 18),

@@ -49,6 +49,21 @@ export const CHANNELS = [
   { id: 'web', label: 'Web' },
 ];
 
+// Feed: los cinco temas de contenido del manual de marca, con su etapa y su color de placa.
+export const FEED_THEMES = [
+  { id: 'recuerdos', label: 'Recuerdos', funnel: 'TOFU', color: '#E8DDCC' },
+  { id: 'regalo', label: 'Ideas de regalo', funnel: 'TOFU · MOFU', color: '#E0E6DA' },
+  { id: 'como-funciona', label: 'Cómo funciona', funnel: 'MOFU', color: '#F7F4EC' },
+  { id: 'historias', label: 'Historias reales', funnel: 'MOFU', color: '#596B53' },
+  { id: 'oferta', label: 'Oferta', funnel: 'BOFU', color: '#302C26' },
+];
+
+export const TONES = [
+  { id: 'claro', label: 'Claro' },
+  { id: 'oscuro', label: 'Oscuro' },
+  { id: 'acento', label: 'Acento' },
+];
+
 export function defaultBrand() {
   return {
     rules: [

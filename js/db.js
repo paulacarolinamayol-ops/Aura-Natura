@@ -4,13 +4,14 @@
 // - settings: marca, fecha del último respaldo y otras preferencias
 // - pieces: la Biblioteca (contenido ya publicado); sus portadas van en blobs
 // - designs: los diseños del Editor; sus imágenes propias (fondos) y miniaturas van en blobs
+// - feeds: las propuestas del Feed; sus imágenes sueltas van en blobs
 //
-// Versión 2 agrega «pieces» y versión 3 agrega «designs».
+// Versión 2 agrega «pieces», versión 3 agrega «designs» y versión 4 agrega «feeds».
 // Subir de versión solo agrega lo nuevo: nunca borra lo guardado.
 
 const DB_NAME = 'estudio-aura';
-const DB_VERSION = 3;
-const STORES = ['photos', 'blobs', 'settings', 'pieces', 'designs'];
+const DB_VERSION = 4;
+const STORES = ['photos', 'blobs', 'settings', 'pieces', 'designs', 'feeds'];
 
 let dbPromise = null;
 
@@ -25,6 +26,7 @@ function open() {
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
         if (!db.objectStoreNames.contains('pieces')) db.createObjectStore('pieces', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('designs')) db.createObjectStore('designs', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('feeds')) db.createObjectStore('feeds', { keyPath: 'id' });
       };
       request.onsuccess = () => {
         const db = request.result;
@@ -125,6 +127,23 @@ export async function deleteDesign(id, blobKeys) {
   return done(tx);
 }
 
+/** Guarda una propuesta del Feed y borra las imágenes sueltas que ya nadie usa. */
+export async function saveFeed(feed, removedKeys = []) {
+  const db = await open();
+  const tx = db.transaction(['feeds', 'blobs'], 'readwrite');
+  tx.objectStore('feeds').put(feed);
+  for (const key of removedKeys) tx.objectStore('blobs').delete(key);
+  return done(tx);
+}
+
+export async function deleteFeed(id, blobKeys) {
+  const db = await open();
+  const tx = db.transaction(['feeds', 'blobs'], 'readwrite');
+  tx.objectStore('feeds').delete(id);
+  for (const key of blobKeys) tx.objectStore('blobs').delete(key);
+  return done(tx);
+}
+
 export async function remove(store, key) {
   const db = await open();
   const tx = db.transaction(store, 'readwrite');
@@ -136,13 +155,14 @@ export async function remove(store, key) {
  * Reemplaza todo el contenido en una sola operación (se usa al restaurar).
  * Si algo falla a mitad de camino, no se borra nada.
  */
-export async function replaceAll({ photos, pieces, designs = [], blobs, settings }) {
+export async function replaceAll({ photos, pieces, designs = [], feeds = [], blobs, settings }) {
   const db = await open();
   const tx = db.transaction(STORES, 'readwrite');
   for (const name of STORES) tx.objectStore(name).clear();
   for (const photo of photos) tx.objectStore('photos').put(photo);
   for (const piece of pieces) tx.objectStore('pieces').put(piece);
   for (const design of designs) tx.objectStore('designs').put(design);
+  for (const feed of feeds) tx.objectStore('feeds').put(feed);
   for (const [key, blob] of blobs) tx.objectStore('blobs').put(blob, key);
   for (const [key, value] of settings) tx.objectStore('settings').put(value, key);
   return done(tx);

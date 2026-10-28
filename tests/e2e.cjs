@@ -331,6 +331,83 @@ async function noHorizontalScroll(page) {
       assert.equal(await page.locator('.design-card').count(), 1);
     });
 
+    await step('Etapa 5: armar una propuesta del Feed, etiquetar, revisar y ordenar', async () => {
+      await page.getByRole('link', { name: 'Feed' }).click();
+      await page.getByText('Todavía no hay propuestas').waitFor();
+      await page.getByRole('button', { name: 'Nueva propuesta' }).first().click();
+      await page.locator('#feed-name').waitFor();
+      await page.locator('#feed-name').fill('Noviembre');
+      // Las 2 piezas de la Biblioteca están en Instagram: se ven abajo, fijas.
+      assert.equal(await page.locator('.feed-tile.is-published').count(), 2);
+
+      await page.getByRole('button', { name: 'Agregar publicaciones' }).click();
+      const sheet = page.getByRole('dialog');
+      await sheet.getByRole('button', { name: 'Mesa de luz' }).click();
+      await sheet.getByRole('radio', { name: 'Mis originales' }).click();
+      for (const name of ['esfera-recorte', 'esfera-trasera', 'lámpara año nuevo']) await sheet.getByRole('button', { name, exact: true }).click();
+      await sheet.getByRole('button', { name: 'Agregar 4' }).click();
+      await page.getByText('4 publicaciones agregadas').waitFor();
+      assert.equal(await page.locator('.feed-tile.is-planned').count(), 4);
+      // Lo primero que se eligió se publica primero: queda abajo de lo planeado.
+      assert.match(await page.locator('.feed-tile').nth(3).getAttribute('aria-label'), /^Publicación 1: Mesa de luz, fila 2, columna 1/);
+
+      const tag = async (number, theme) => {
+        await page.getByRole('button', { name: new RegExp(`^Publicación ${number}:`) }).click();
+        await page.getByRole('dialog').getByRole('radio', { name: theme }).click();
+        await page.getByRole('dialog').getByRole('button', { name: 'Listo' }).click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+      };
+      await tag(1, 'Oferta');
+      await tag(2, 'Oferta');
+      await tag(3, 'Recuerdos');
+      await tag(4, 'Recuerdos');
+      await page.getByText(/^Dos ofertas muy cerca: fila 1, columna 3 y fila 2, columna 1/).waitFor();
+      await page.getByText(/^Dos de «Recuerdos» juntas: fila 1, columna 1 y fila 1, columna 2/).waitFor();
+      const issuesBefore = await page.locator('.issue').count();
+
+      await page.getByRole('button', { name: 'Sugerir orden' }).click();
+      await page.getByText(/^Orden sugerido/).waitFor();
+      assert.ok(await page.locator('.issue').count() < issuesBefore, 'sugerir orden no mejoró la grilla');
+      await page.getByRole('button', { name: 'Deshacer' }).click();
+      assert.equal(await page.locator('.issue').count(), issuesBefore);
+
+      // Arrastrar la de arriba a la izquierda hasta el último lugar planeado.
+      const first = await page.locator('.feed-tile').nth(0).boundingBox();
+      const last = await page.locator('.feed-tile').nth(3).boundingBox();
+      const firstLabel = (await page.locator('.feed-tile').nth(0).getAttribute('aria-label')).split(':')[1].split(',')[0];
+      await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(first.x + 40, first.y + 60, { steps: 4 });
+      await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2, { steps: 8 });
+      await page.mouse.up();
+      assert.match(await page.locator('.feed-tile').nth(3).getAttribute('aria-label'), new RegExp(`^Publicación 1:${firstLabel},`));
+      assert.equal(await page.getByRole('dialog').count(), 0, 'soltar no tiene que abrir la ficha');
+      await noHorizontalScroll(page);
+
+      await page.waitForTimeout(300);
+      await page.reload();
+      await page.locator('#feed-name').waitFor();
+      assert.equal(await page.locator('#feed-name').inputValue(), 'Noviembre');
+      assert.equal(await page.locator('.feed-tile.is-planned').count(), 4);
+      assert.equal(await page.locator('.feed-theme', { hasText: 'Oferta' }).count(), 2);
+    });
+
+    await step('Feed: duplicar, comparar lado a lado y eliminar una propuesta', async () => {
+      await page.getByRole('link', { name: '← Propuestas' }).click();
+      await page.getByRole('button', { name: 'Duplicar' }).click();
+      await page.getByRole('link', { name: 'Abrir Noviembre (copia)' }).waitFor();
+      for (const card of await page.locator('.feed-card').all()) await card.getByRole('button', { name: 'Comparar' }).click();
+      await page.getByRole('link', { name: 'Comparar lado a lado' }).click();
+      await page.getByRole('heading', { name: 'Comparar propuestas' }).waitFor();
+      assert.equal(await page.locator('.compare-col').count(), 2);
+      assert.equal(await page.locator('.compare-col').nth(0).locator('.feed-tile').count(), 6);
+      await page.getByRole('link', { name: '← Propuestas' }).click();
+      await page.getByRole('button', { name: 'Eliminar Noviembre (copia)' }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Eliminar propuesta' }).click();
+      await page.getByText('Propuesta eliminada').waitFor();
+      assert.equal(await page.locator('.feed-card').count(), 1);
+    });
+
     let backupPath;
     await step('Aviso de respaldo pendiente y respaldo descargado', async () => {
       await page.getByText('Todavía no hiciste un respaldo de tus fotos.').waitFor();
@@ -366,9 +443,9 @@ async function noHorizontalScroll(page) {
       await p.goto(`${URL_BASE}#respaldo`);
       await p.getByText('Todavía no hiciste ningún respaldo.').waitFor();
       await p.locator('#restore-input').setInputFiles(backupPath);
-      await p.getByRole('alertdialog').getByText(/3 fotos, 2 piezas de la Biblioteca, 1 diseño, logo y ficha de marca/).waitFor();
+      await p.getByRole('alertdialog').getByText(/3 fotos, 2 piezas de la Biblioteca, 1 diseño, 1 propuesta del Feed, logo y ficha de marca/).waitFor();
       await p.getByRole('button', { name: 'Restaurar' }).click();
-      await p.getByText('Respaldo restaurado: 3 fotos, 2 piezas y 1 diseño').waitFor();
+      await p.getByText('Respaldo restaurado: 3 fotos, 2 piezas, 1 diseño y 1 propuesta del Feed').waitFor();
 
       await p.getByRole('link', { name: 'Mis originales' }).click();
       await p.getByText('3 fotos reales · se guardan sin cambios').waitFor();
@@ -402,6 +479,11 @@ async function noHorizontalScroll(page) {
         if (img.complete) check(); else img.onload = check;
       }));
       assert.ok(restoredOk, 'el diseño restaurado no exporta bien');
+      await p.getByRole('button', { name: 'Cerrar', exact: true }).click();
+      await p.getByRole('link', { name: 'Feed' }).click();
+      await p.getByRole('link', { name: 'Abrir Noviembre' }).click();
+      assert.equal(await p.locator('.feed-tile.is-planned').count(), 4);
+      assert.equal(await p.locator('.feed-theme', { hasText: 'Oferta' }).count(), 2);
       await fresh.close();
     });
 
@@ -472,7 +554,7 @@ async function noHorizontalScroll(page) {
     await step('En pantalla de celular no hay desplazamiento lateral', async () => {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const p = await ctx.newPage();
-      for (const screen of ['marca', 'originales', 'biblioteca', 'instrucciones', 'editor', 'respaldo']) {
+      for (const screen of ['marca', 'originales', 'biblioteca', 'instrucciones', 'editor', 'feed', 'respaldo']) {
         await p.goto(`${URL_BASE}#${screen}`);
         await p.locator('.main').waitFor();
         await noHorizontalScroll(p);
