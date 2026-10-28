@@ -1,6 +1,6 @@
 // Guarda los archivos de la app para que funcione sin internet.
 // Cambiar VERSION en cada publicación para que el iPad descargue la versión nueva.
-const VERSION = 'estudio-aura-v4';
+const VERSION = 'estudio-aura-v5';
 
 const FILES = [
   './',
@@ -16,10 +16,12 @@ const FILES = [
   'js/zip.js',
   'js/backup.js',
   'js/prompts.js',
+  'js/editor/render.js',
   'js/views/marca.js',
   'js/views/originales.js',
   'js/views/biblioteca.js',
   'js/views/instrucciones.js',
+  'js/views/editor.js',
   'js/views/respaldo.js',
   'fonts/Fraunces.woff2',
   'fonts/Fraunces-Italic.woff2',

@@ -134,9 +134,10 @@ async function shareOriginal(photo) {
 }
 
 async function removePhoto(photo) {
+  const usedIn = state.designs.filter((d) => d.layers.some((l) => l.source && l.source.kind === 'photo' && l.source.id === photo.id)).length;
   const ok = await confirmDialog({
     title: '¿Eliminar esta foto?',
-    body: `«${photo.name}» se borra de Estudio Aura. Si no está en un respaldo ni en tu galería, no se puede recuperar.`,
+    body: `«${photo.name}» se borra de Estudio Aura. Si no está en un respaldo ni en tu galería, no se puede recuperar.${usedIn ? ` Se usa en ${usedIn === 1 ? '1 diseño' : `${usedIn} diseños`}: ahí va a quedar un espacio vacío.` : ''}`,
     confirmLabel: 'Eliminar foto',
     danger: true,
   });

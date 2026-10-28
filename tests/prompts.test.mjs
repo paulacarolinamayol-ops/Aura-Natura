@@ -50,7 +50,7 @@ test('las reglas siguen a la ficha editada', () => {
 
 test('«Solo el fondo» pide una imagen nueva sin el producto ni fotos adjuntas', () => {
   const text = buildPrompt({ ...defaultPromptOptions(), type: 'fondo', format: '9x16', light: 'dia', scene: 'caja-de-regalo', textSpace: 'ninguno' }, brand, PALETTE);
-  assert.match(text, /^Generá una imagen nueva desde cero\. No edites ninguna foto\./);
+  assert.match(text, /^Generá una imagen nueva desde cero\. No edites ninguna foto y no uses ninguna imagen anterior de esta conversación\./);
   assert.match(text, /NO tiene que incluir la esfera/);
   assert.ok(!text.includes('adjunt'), 'no debe hablar de fotos adjuntas');
   assert.ok(!text.includes('Qué NO cambiar'));

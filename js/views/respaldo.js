@@ -21,7 +21,7 @@ function backupCard() {
     el('span', { class: 'card-icon' }, icon('respaldo', 22)),
     el('h2', { id: 'backup-title', class: 'display card-title' }, 'Hacer un respaldo'),
     el('p', {}, last ? `Último respaldo: ${last}.` : 'Todavía no hiciste ningún respaldo.'),
-    el('p', { class: 'hint' }, `Incluye ${plural(state.photos.length, 'foto original', 'fotos originales')}, ${plural(state.pieces.length, 'pieza', 'piezas')} de la Biblioteca, tu logo y la ficha de marca. Guardalo en Archivos o en iCloud Drive.`));
+    el('p', { class: 'hint' }, `Incluye ${plural(state.photos.length, 'foto original', 'fotos originales')}, ${plural(state.pieces.length, 'pieza', 'piezas')} de la Biblioteca, ${plural(state.designs.length, 'diseño', 'diseños')}, tu logo y la ficha de marca. Guardalo en Archivos o en iCloud Drive.`));
 
   if (readyBackup) {
     card.append(
@@ -82,8 +82,8 @@ async function restoreFrom(file) {
   const ok = await confirmDialog({
     title: '¿Restaurar este respaldo?',
     body: el('div', {},
-      el('p', {}, `Respaldo del ${created}: ${plural(summary.photoCount, 'foto', 'fotos')}, ${plural(summary.pieceCount, 'pieza', 'piezas')} de la Biblioteca${summary.hasLogo ? ', logo' : ''}${summary.hasBrand ? ' y ficha de marca' : ''}.`),
-      el('p', {}, `Lo que hay ahora en la app (${plural(state.photos.length, 'foto', 'fotos')} y ${plural(state.pieces.length, 'pieza', 'piezas')}) se reemplaza por el contenido del respaldo.`)),
+      el('p', {}, `Respaldo del ${created}: ${plural(summary.photoCount, 'foto', 'fotos')}, ${plural(summary.pieceCount, 'pieza', 'piezas')} de la Biblioteca, ${plural(summary.designCount || 0, 'diseño', 'diseños')}${summary.hasLogo ? ', logo' : ''}${summary.hasBrand ? ' y ficha de marca' : ''}.`),
+      el('p', {}, `Lo que hay ahora en la app (${plural(state.photos.length, 'foto', 'fotos')}, ${plural(state.pieces.length, 'pieza', 'piezas')} y ${plural(state.designs.length, 'diseño', 'diseños')}) se reemplaza por el contenido del respaldo.`)),
     confirmLabel: 'Restaurar',
   });
   if (!ok) return;
@@ -91,7 +91,7 @@ async function restoreFrom(file) {
   try {
     await inspected.apply();
     await reload();
-    toast(`Respaldo restaurado: ${plural(summary.photoCount, 'foto', 'fotos')} y ${plural(summary.pieceCount, 'pieza', 'piezas')}`);
+    toast(`Respaldo restaurado: ${plural(summary.photoCount, 'foto', 'fotos')}, ${plural(summary.pieceCount, 'pieza', 'piezas')} y ${plural(summary.designCount || 0, 'diseño', 'diseños')}`);
   } catch (error) {
     toast(error && error.name === 'QuotaExceededError'
       ? 'No hay espacio suficiente en el iPad. No se cambió nada.'

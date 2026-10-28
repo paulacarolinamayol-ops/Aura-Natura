@@ -8,10 +8,12 @@ import { defaultPromptOptions, normalizePromptOptions } from './prompts.js';
 const listeners = new Set();
 const thumbUrls = new Map();
 const coverUrls = new Map();
+const designThumbUrls = new Map();
 
 export const state = {
   photos: [],
   pieces: [],
+  designs: [],
   promptOptions: defaultPromptOptions(),
   brand: defaultBrand(),
   logo: null,
@@ -43,6 +45,7 @@ function byNewest(a, b) {
 export async function load() {
   state.photos = (await db.getAll('photos')).sort(byNewest);
   state.pieces = sortPieces(await db.getAll('pieces'));
+  state.designs = sortDesigns(await db.getAll('designs'));
   state.brand = (await db.get('settings', 'brand')) || defaultBrand();
   state.lastBackup = (await db.get('settings', 'lastBackup')) || null;
   state.promptOptions = normalizePromptOptions((await db.get('settings', 'promptOptions')) || {});
@@ -193,6 +196,7 @@ export async function markBackup() {
 export async function reload() {
   for (const id of [...thumbUrls.keys()]) forgetThumb(id);
   for (const id of [...coverUrls.keys()]) forgetCover(id);
+  for (const id of [...designThumbUrls.keys()]) forgetDesignThumb(id);
   await load();
 }
 
@@ -244,4 +248,93 @@ export async function deletePiece(id) {
   state.pieces = state.pieces.filter((p) => p.id !== id);
   await refreshStorage();
   notify();
+}
+
+// Editor
+
+function sortDesigns(designs) {
+  return designs.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/** Claves de los blobs de una fuente de imagen (foto original, imagen propia del diseño o logo). */
+function blobKeyFor(source) {
+  if (source.kind === 'photo') return `orig:${source.id}`;
+  if (source.kind === 'asset') return `asset:${source.id}`;
+  return 'logo';
+}
+
+export async function sourceBlob(source) {
+  return db.get('blobs', blobKeyFor(source));
+}
+
+export function newDesign(format) {
+  const now = new Date().toISOString();
+  return { id: newId(), name: 'Diseño sin título', format, layers: [], createdAt: now, updatedAt: now };
+}
+
+/** Guarda una imagen propia del diseño (por ejemplo, un fondo de ChatGPT). Devuelve su fuente. */
+export async function addDesignAsset(file) {
+  const id = newId();
+  await db.put('blobs', file, `asset:${id}`);
+  return { kind: 'asset', id };
+}
+
+function assetIds(design) {
+  return design.layers.filter((l) => l.source && l.source.kind === 'asset').map((l) => l.source.id);
+}
+
+/** Imágenes propias que ya no usa ningún diseño guardado. */
+function orphanAssetKeys(candidateIds, designs) {
+  const used = new Set(designs.flatMap(assetIds));
+  return [...new Set(candidateIds)].filter((id) => !used.has(id)).map((id) => `asset:${id}`);
+}
+
+/**
+ * Guarda el diseño sin redibujar la pantalla (el Editor se dibuja solo).
+ * thumb: miniatura nueva, opcional.
+ */
+export async function saveDesign(design, thumb) {
+  const previous = state.designs.find((d) => d.id === design.id);
+  const saved = { ...design, layers: design.layers.map((l) => ({ ...l })), updatedAt: new Date().toISOString() };
+  const others = state.designs.filter((d) => d.id !== design.id);
+  const removed = previous ? orphanAssetKeys(assetIds(previous), [...others, saved]) : [];
+  await db.saveDesign(saved, thumb ? [[`design-thumb:${saved.id}`, thumb]] : [], removed);
+  if (thumb) forgetDesignThumb(saved.id);
+  state.designs = sortDesigns([...others, saved]);
+  return saved;
+}
+
+export async function duplicateDesign(id) {
+  const original = state.designs.find((d) => d.id === id);
+  if (!original) return null;
+  const copy = { ...newDesign(original.format), name: `${original.name} (copia)`, layers: original.layers.map((l) => ({ ...l })) };
+  const thumb = await db.get('blobs', `design-thumb:${id}`);
+  await saveDesign(copy, thumb || null);
+  notify();
+  return copy;
+}
+
+export async function deleteDesign(id) {
+  const design = state.designs.find((d) => d.id === id);
+  if (!design) return;
+  const others = state.designs.filter((d) => d.id !== id);
+  await db.deleteDesign(id, [`design-thumb:${id}`, ...orphanAssetKeys(assetIds(design), others)]);
+  forgetDesignThumb(id);
+  state.designs = others;
+  await refreshStorage();
+  notify();
+}
+
+export async function designThumbUrl(design) {
+  if (designThumbUrls.has(design.id)) return designThumbUrls.get(design.id);
+  const blob = await db.get('blobs', `design-thumb:${design.id}`);
+  const url = blob ? URL.createObjectURL(blob) : null;
+  designThumbUrls.set(design.id, url);
+  return url;
+}
+
+function forgetDesignThumb(id) {
+  const url = designThumbUrls.get(id);
+  if (url) URL.revokeObjectURL(url);
+  designThumbUrls.delete(id);
 }
