@@ -217,14 +217,17 @@ async function noHorizontalScroll(page) {
       await page.getByRole('link', { name: 'Instrucciones' }).click();
       const prompt = page.locator('#prompt-text');
       await prompt.waitFor();
-      assert.match(await prompt.textContent(), /^Editá la foto adjunta\./);
+      assert.match(await prompt.textContent(), /^Retocá la foto adjunta/);
       assert.ok((await prompt.textContent()).includes('- Cable: Cable de carga USB-C negro, de 1 metro.'), 'la instrucción no usa la ficha editada');
+      assert.equal(await page.getByRole('radiogroup', { name: 'Escenario' }).count(), 0, 'el retoque no debe ofrecer escenario');
 
       await page.getByRole('radio', { name: 'Solo el fondo' }).click();
       assert.match(await prompt.textContent(), /NO tiene que incluir la esfera/);
+      assert.equal(await page.getByRole('radiogroup', { name: 'Foto de referencia' }).count(), 0, '«Solo el fondo» no debe ofrecer foto');
+      await page.getByText('En ChatGPT, pegala sin adjuntar ninguna foto.').waitFor();
       await page.getByRole('radio', { name: 'Historia o reel 9:16' }).click();
       assert.match(await prompt.textContent(), /1080 × 1920 px/);
-      await page.getByRole('radio', { name: 'Mejorar una foto real' }).click();
+      await page.getByRole('radio', { name: 'Cambiar el escenario' }).click();
       await page.getByRole('radio', { name: 'Caja de regalo' }).click();
       assert.match(await prompt.textContent(), /caja de regalo abierta/);
 

@@ -3,7 +3,7 @@
 import * as db from './db.js';
 import { defaultBrand } from './brand.js';
 import { describeImage } from './images.js';
-import { defaultPromptOptions } from './prompts.js';
+import { defaultPromptOptions, normalizePromptOptions } from './prompts.js';
 
 const listeners = new Set();
 const thumbUrls = new Map();
@@ -45,7 +45,7 @@ export async function load() {
   state.pieces = sortPieces(await db.getAll('pieces'));
   state.brand = (await db.get('settings', 'brand')) || defaultBrand();
   state.lastBackup = (await db.get('settings', 'lastBackup')) || null;
-  state.promptOptions = { ...defaultPromptOptions(), ...((await db.get('settings', 'promptOptions')) || {}) };
+  state.promptOptions = normalizePromptOptions((await db.get('settings', 'promptOptions')) || {});
   await loadLogo();
   await refreshStorage();
   notify();
