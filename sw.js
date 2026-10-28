@@ -1,6 +1,6 @@
 // Guarda los archivos de la app para que funcione sin internet.
 // Cambiar VERSION en cada publicación para que el iPad descargue la versión nueva.
-const VERSION = 'estudio-aura-v7';
+const VERSION = 'estudio-aura-v8';
 
 const FILES = [
   './',
