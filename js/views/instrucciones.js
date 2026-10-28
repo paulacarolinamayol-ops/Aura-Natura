@@ -11,7 +11,6 @@ const reference = { id: null, file: null, url: null };
 
 export function renderInstrucciones(root) {
   const options = { ...state.promptOptions };
-  const photo = pickReference(options);
 
   const preview = el('pre', { class: 'prompt-text', id: 'prompt-text', tabindex: '0', 'aria-label': 'Instrucción para ChatGPT' });
   const referenceBox = el('div', { class: 'reference' });
@@ -25,25 +24,39 @@ export function renderInstrucciones(root) {
 
   const optionsCard = el('section', { class: 'card prompt-options', 'aria-label': 'Opciones' });
   function draw() {
+    const type = PROMPT_TYPES.find((t) => t.id === options.type) || PROMPT_TYPES[0];
+    const uses = (key) => type.uses.includes(key);
+    // «Solo el fondo» se pide sin adjuntar fotos: si no, ChatGPT edita la foto en vez de crear la escena.
+    const withPhoto = type.id !== 'fondo';
     preview.textContent = buildPrompt(options, state.brand, PALETTE);
     optionsCard.replaceChildren(
-      choice('Tipo de instrucción', PROMPT_TYPES, options.type, (id) => update({ type: id }), (PROMPT_TYPES.find((t) => t.id === options.type) || {}).help),
-      choice('¿Qué querés lograr?', GOALS, options.goal, (id) => update({ goal: id })),
-      choice('Formato', PROMPT_FORMATS, options.format, (id) => update({ format: id })),
-      choice('Luz', PROMPT_LIGHTS, options.light, (id) => update({ light: id })),
-      choice('Escenario', SCENES, options.scene, (id) => update({ scene: id })),
-      choice('Espacio para texto', TEXT_SPACES, options.textSpace, (id) => update({ textSpace: id })),
-      referencePicker(options, (id) => { update({ referenceId: id }); prepareReference(id, referenceBox, options); }));
-    drawReference(referenceBox, options);
-    steps.replaceChildren(
-      el('li', {}, 'Copiá la instrucción.'),
-      el('li', {}, options.type === 'fondo'
-        ? 'Si querés, guardá la foto de referencia: sirve para que ChatGPT copie la luz y el ángulo.'
-        : 'Guardá la foto de referencia, o arrastrala a ChatGPT con la pantalla dividida.'),
-      el('li', {}, 'En ChatGPT, adjuntá la foto y pegá la instrucción.'));
+      choice('Tipo de instrucción', PROMPT_TYPES, type.id, (id) => update({ type: id }), type.help),
+      uses('goal') ? choice('¿Qué querés lograr?', GOALS, options.goal, (id) => update({ goal: id })) : null,
+      uses('format') ? choice('Formato', PROMPT_FORMATS, options.format, (id) => update({ format: id })) : null,
+      uses('light') ? choice('Luz', PROMPT_LIGHTS, options.light, (id) => update({ light: id })) : null,
+      uses('scene') ? choice('Escenario', SCENES, options.scene, (id) => update({ scene: id })) : null,
+      uses('textSpace') ? choice('Espacio para texto', TEXT_SPACES, options.textSpace, (id) => update({ textSpace: id })) : null,
+      withPhoto ? referencePicker(options, (id) => update({ referenceId: id })) : null);
+    if (withPhoto) {
+      const photo = pickReference(options);
+      if (photo && reference.id !== photo.id) prepareReference(photo.id, referenceBox, options);
+      else drawReference(referenceBox, options);
+    } else {
+      referenceBox.replaceChildren();
+    }
+    steps.replaceChildren(...(withPhoto
+      ? [
+        el('li', {}, 'Copiá la instrucción.'),
+        el('li', {}, 'Guardá la foto de referencia, o arrastrala a ChatGPT con la pantalla dividida.'),
+        el('li', {}, 'En ChatGPT, adjuntá la foto y pegá la instrucción.'),
+      ]
+      : [
+        el('li', {}, 'Copiá la instrucción.'),
+        el('li', {}, 'En ChatGPT, pegala sin adjuntar ninguna foto.'),
+        el('li', {}, 'Guardá la imagen que te dé: en el Editor (Etapa 4) le vas a poner encima tu esfera real.'),
+      ]));
   }
   draw();
-  if (photo) prepareReference(photo.id, referenceBox, options);
 
   root.append(
     el('header', { class: 'page-head' },
