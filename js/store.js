@@ -3,6 +3,7 @@
 import * as db from './db.js';
 import { defaultBrand } from './brand.js';
 import { describeImage } from './images.js';
+import { defaultPromptOptions } from './prompts.js';
 
 const listeners = new Set();
 const thumbUrls = new Map();
@@ -11,6 +12,7 @@ const coverUrls = new Map();
 export const state = {
   photos: [],
   pieces: [],
+  promptOptions: defaultPromptOptions(),
   brand: defaultBrand(),
   logo: null,
   logoUrl: null,
@@ -43,6 +45,7 @@ export async function load() {
   state.pieces = sortPieces(await db.getAll('pieces'));
   state.brand = (await db.get('settings', 'brand')) || defaultBrand();
   state.lastBackup = (await db.get('settings', 'lastBackup')) || null;
+  state.promptOptions = { ...defaultPromptOptions(), ...((await db.get('settings', 'promptOptions')) || {}) };
   await loadLogo();
   await refreshStorage();
   notify();
@@ -172,6 +175,12 @@ export async function removeLogo() {
   await db.remove('blobs', 'logo');
   await loadLogo();
   notify();
+}
+
+/** Recuerda las últimas opciones de Instrucciones. No redibuja la pantalla. */
+export async function savePromptOptions(options) {
+  state.promptOptions = options;
+  await db.put('settings', options, 'promptOptions');
 }
 
 export async function markBackup() {

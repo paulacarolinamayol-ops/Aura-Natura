@@ -213,6 +213,41 @@ async function noHorizontalScroll(page) {
       assert.equal(await page.locator('.piece').count(), 2);
     });
 
+    await step('Etapa 3: armar, copiar y recordar la instrucción para ChatGPT', async () => {
+      await page.getByRole('link', { name: 'Instrucciones' }).click();
+      const prompt = page.locator('#prompt-text');
+      await prompt.waitFor();
+      assert.match(await prompt.textContent(), /^Editá la foto adjunta\./);
+      assert.ok((await prompt.textContent()).includes('- Cable: Cable de carga USB-C negro, de 1 metro.'), 'la instrucción no usa la ficha editada');
+
+      await page.getByRole('radio', { name: 'Solo el fondo' }).click();
+      assert.match(await prompt.textContent(), /NO tiene que incluir la esfera/);
+      await page.getByRole('radio', { name: 'Historia o reel 9:16' }).click();
+      assert.match(await prompt.textContent(), /1080 × 1920 px/);
+      await page.getByRole('radio', { name: 'Mejorar una foto real' }).click();
+      await page.getByRole('radio', { name: 'Caja de regalo' }).click();
+      assert.match(await prompt.textContent(), /caja de regalo abierta/);
+
+      await page.getByRole('button', { name: 'Copiar instrucción' }).click();
+      await page.getByText('Instrucción copiada. Pegala en ChatGPT.').waitFor();
+      assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await prompt.textContent());
+
+      await page.getByRole('radio', { name: 'esfera-trasera, Trasera' }).click();
+      await page.getByRole('img', { name: 'Foto de referencia: esfera-trasera' }).waitFor();
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.getByRole('button', { name: 'Guardar foto de referencia' }).click(),
+      ]);
+      assert.ok(fs.readFileSync(await download.path()).equals(fs.readFileSync(photos[1])), 'la foto de referencia no es el original');
+
+      await page.reload();
+      await page.locator('#prompt-text').waitFor();
+      assert.equal(await page.getByRole('radio', { name: 'Historia o reel 9:16' }).getAttribute('aria-checked'), 'true');
+      assert.equal(await page.getByRole('radio', { name: 'Caja de regalo' }).getAttribute('aria-checked'), 'true');
+      await page.getByRole('img', { name: 'Foto de referencia: esfera-trasera' }).waitFor();
+      await noHorizontalScroll(page);
+    });
+
     let backupPath;
     await step('Aviso de respaldo pendiente y respaldo descargado', async () => {
       await page.getByText('Todavía no hiciste un respaldo de tus fotos.').waitFor();
@@ -316,7 +351,7 @@ async function noHorizontalScroll(page) {
     await step('En pantalla de celular no hay desplazamiento lateral', async () => {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const p = await ctx.newPage();
-      for (const screen of ['marca', 'originales', 'biblioteca', 'respaldo']) {
+      for (const screen of ['marca', 'originales', 'biblioteca', 'instrucciones', 'respaldo']) {
         await p.goto(`${URL_BASE}#${screen}`);
         await p.locator('.main').waitFor();
         await noHorizontalScroll(p);

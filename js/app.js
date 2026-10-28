@@ -5,18 +5,19 @@ import { state, load, subscribe } from './store.js';
 import { renderMarca } from './views/marca.js';
 import { renderOriginales } from './views/originales.js';
 import { renderBiblioteca } from './views/biblioteca.js';
+import { renderInstrucciones } from './views/instrucciones.js';
 import { renderRespaldo } from './views/respaldo.js';
 
 const SCREENS = {
   marca: { label: 'Mi marca', icon: 'marca', render: renderMarca },
   originales: { label: 'Mis originales', icon: 'fotos', render: renderOriginales },
   biblioteca: { label: 'Biblioteca', icon: 'biblioteca', render: renderBiblioteca },
+  instrucciones: { label: 'Instrucciones', icon: 'instrucciones', render: renderInstrucciones },
   respaldo: { label: 'Respaldo', icon: 'respaldo', render: renderRespaldo },
 };
 
 // Lo que todavía no existe se muestra con su etapa y sin enlace.
 const UPCOMING = [
-  { label: 'Instrucciones', icon: 'instrucciones', stage: 'Etapa 3' },
   { label: 'Editor', icon: 'editor', stage: 'Etapa 4' },
   { label: 'Feed', icon: 'feed', stage: 'Etapa 5' },
 ];
