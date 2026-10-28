@@ -73,7 +73,7 @@ function photoTile(photo) {
   const category = CATEGORIES.find((c) => c.id === photo.category);
   return el('button', {
     type: 'button',
-    class: 'tile',
+    class: `tile${photo.category === 'recorte' ? ' tile-cutout' : ''}`,
     'aria-pressed': String(view.selectedId === photo.id),
     'aria-label': `Abrir ${photo.name}`,
     onclick: () => openPhoto(photo.id),
@@ -115,7 +115,7 @@ function detailPanel(photo) {
     el('div', { class: 'detail-card' },
       el('div', { class: 'detail-top' },
         el('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Cerrar', onclick: close }, icon('cerrar', 20))),
-      el('div', { class: 'detail-image' }, image),
+      el('div', { class: `detail-image${photo.category === 'recorte' ? ' is-cutout' : ''}` }, image),
       el('label', { for: 'photo-name', class: 'field-label' }, 'Nombre'),
       el('input', { id: 'photo-name', class: 'input', value: photo.name, onchange: (e) => updatePhoto(photo.id, { name: e.target.value.trim() || photo.name }) }),
       el('span', { class: 'hint tabular' }, meta),

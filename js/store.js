@@ -88,7 +88,10 @@ export async function requestPersistence() {
 
 export async function thumbUrl(photo) {
   if (thumbUrls.has(photo.id)) return thumbUrls.get(photo.id);
-  const blob = (await db.get('blobs', `thumb:${photo.id}`)) || (await db.get('blobs', `orig:${photo.id}`));
+  // Las miniaturas son JPG y pierden la transparencia: los recortes se muestran con el original.
+  const blob = photo.category === 'recorte'
+    ? await db.get('blobs', `orig:${photo.id}`)
+    : (await db.get('blobs', `thumb:${photo.id}`)) || (await db.get('blobs', `orig:${photo.id}`));
   const url = blob ? URL.createObjectURL(blob) : null;
   thumbUrls.set(photo.id, url);
   return url;
@@ -150,6 +153,7 @@ export async function addPhotos(files, category, onProgress) {
 export async function updatePhoto(id, changes) {
   const photo = state.photos.find((p) => p.id === id);
   if (!photo) return;
+  if (changes.category && changes.category !== photo.category) forgetThumb(id);
   Object.assign(photo, changes);
   await db.put('photos', photo);
   notify();
