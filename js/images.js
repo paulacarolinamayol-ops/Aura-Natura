@@ -111,3 +111,26 @@ export async function hasTransparency(blob) {
   }
   return false;
 }
+
+/** Brillo promedio de una imagen, de 0 (negro) a 1 (blanco), o null si no se puede leer. */
+export async function averageLuminance(blob) {
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(blob);
+  } catch {
+    return null;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = 24;
+  canvas.height = 24;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  // Lo transparente cuenta como el fondo marfil de la marca.
+  context.fillStyle = '#F7F4EC';
+  context.fillRect(0, 0, 24, 24);
+  context.drawImage(bitmap, 0, 0, 24, 24);
+  bitmap.close();
+  const { data } = context.getImageData(0, 0, 24, 24);
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 4) sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  return sum / (data.length / 4) / 255;
+}

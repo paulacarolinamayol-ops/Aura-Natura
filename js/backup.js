@@ -3,14 +3,14 @@
 // las portadas de la Biblioteca, la ficha de marca y un archivo "manifest.json"
 // que describe todo.
 //
-// Versión 2 agrega la Biblioteca y versión 3 los diseños del Editor.
+// Versión 2 agrega la Biblioteca, versión 3 los diseños del Editor y versión 4 las propuestas del Feed.
 // Los respaldos de versiones anteriores se pueden restaurar igual.
 
 import * as db from './db.js';
 import { createZip, readZip, verifyEntry } from './zip.js';
 
 const FORMAT = 'estudio-aura-respaldo';
-const VERSION = 3;
+const VERSION = 4;
 
 function safeName(name) {
   return name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 120) || 'archivo';
@@ -30,7 +30,7 @@ Carpetas:
 - miniaturas: versiones chicas que usa la galería.
 - logo: tu logo.
 - portadas: las portadas de la Biblioteca.
-- editor: las imágenes propias de los diseños (por ejemplo, fondos de ChatGPT) y sus miniaturas.
+- editor: las imágenes propias de los diseños y del Feed (por ejemplo, fondos de ChatGPT) y las miniaturas de los diseños.
 - manifest.json: nombres, categorías y ficha de marca. No lo edites.
 `;
 
@@ -41,6 +41,7 @@ export async function buildBackup(onProgress) {
   const logo = await db.get('blobs', 'logo');
   const pieces = await db.getAll('pieces');
   const designs = await db.getAll('designs');
+  const feeds = await db.getAll('feeds');
   const entries = [{ name: 'LEEME.txt', data: README }];
   const manifest = {
     format: FORMAT,
@@ -51,6 +52,7 @@ export async function buildBackup(onProgress) {
     photos: [],
     pieces: [],
     designs: [],
+    feeds,
     assets: [],
   };
 
@@ -81,7 +83,10 @@ export async function buildBackup(onProgress) {
     manifest.pieces.push({ ...piece, coverPath });
   }
 
-  const assetIds = [...new Set(designs.flatMap((d) => d.layers.filter((l) => l.source && l.source.kind === 'asset').map((l) => l.source.id)))];
+  const assetIds = [...new Set([
+    ...designs.flatMap((d) => d.layers.filter((l) => l.source && l.source.kind === 'asset').map((l) => l.source.id)),
+    ...feeds.flatMap((f) => f.posts.filter((p) => p.source.kind === 'asset').map((p) => p.source.id)),
+  ])];
   for (const id of assetIds) {
     const blob = await db.get('blobs', `asset:${id}`);
     if (!blob) continue;
@@ -134,6 +139,7 @@ export async function inspectBackup(file, onProgress) {
     if (piece.coverPath) needed.push(piece.coverPath);
   }
   const designs = manifest.designs || [];
+  const feeds = manifest.feeds || [];
   const assets = manifest.assets || [];
   for (const asset of assets) needed.push(asset.path);
   for (const design of designs) {
@@ -153,6 +159,7 @@ export async function inspectBackup(file, onProgress) {
     photoCount: manifest.photos.length,
     pieceCount: pieces.length,
     designCount: designs.length,
+    feedCount: feeds.length,
     hasLogo: Boolean(manifest.logo),
     hasBrand: Boolean(manifest.brand),
   };
@@ -189,7 +196,7 @@ export async function inspectBackup(file, onProgress) {
     }
     const settings = [['lastBackup', manifest.createdAt]];
     if (manifest.brand) settings.push(['brand', manifest.brand]);
-    await db.replaceAll({ photos, pieces: restoredPieces, designs: restoredDesigns, blobs, settings });
+    await db.replaceAll({ photos, pieces: restoredPieces, designs: restoredDesigns, feeds, blobs, settings });
   }
 
   return { summary, apply };
