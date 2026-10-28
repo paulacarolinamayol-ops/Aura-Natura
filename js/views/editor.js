@@ -3,6 +3,7 @@
 // Las fotos de «Mis originales» se usan por referencia: el Editor nunca las modifica.
 
 import { el, icon, toast, hideToast, confirmDialog, saveFile, relativeDate } from '../ui.js';
+import { pasteCutout } from './originales.js';
 import { PALETTE, CATEGORIES } from '../brand.js';
 import { hasTransparency } from '../images.js';
 import {
@@ -283,7 +284,7 @@ function renderDesignEditor(root) {
     changed({ panel: true });
   }
 
-  async function addSphere(photo) {
+  async function addSphere(photo, { warned = false } = {}) {
     const source = { kind: 'photo', id: photo.id };
     const aspect = await loadImage(source);
     if (!aspect) { toast('No se pudo leer la foto.'); return; }
@@ -293,7 +294,7 @@ function renderDesignEditor(root) {
     session.selectedId = layer.id;
     changed({ panel: true });
     const blob = await sourceBlob(source);
-    if (blob && !(await hasTransparency(blob))) {
+    if (!warned && blob && !(await hasTransparency(blob))) {
       toast('Esta foto tiene fondo. Para que la esfera se vea apoyada, usá un recorte sin fondo.');
     }
   }
@@ -306,6 +307,18 @@ function renderDesignEditor(root) {
         el('div', { class: 'sheet-head' },
           el('h2', { id: 'picker-title', class: 'display' }, 'Elegí la esfera'),
           el('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Cerrar', onclick: close }, icon('cerrar', 20))),
+        el('div', { class: 'edit-actions' },
+          el('button', {
+            type: 'button', class: 'btn btn-quiet btn-small',
+            onclick: async () => {
+              const photo = await pasteCutout();
+              if (!photo) return;
+              close();
+              await addSphere(photo, { warned: true });
+              redraw(); // pegar guarda una foto nueva y redibuja la app: se muestra el diseño actualizado
+            },
+          }, icon('copiar', 16), 'Pegar recorte'),
+          el('span', { class: 'hint' }, 'En Fotos, mantené apretada la esfera, tocá «Copiar» y volvé acá.')),
         photos.length
           ? el('p', { class: 'hint' }, 'Primero aparecen los recortes sin fondo. La foto original no se modifica.')
           : el('p', {}, 'Todavía no hay fotos. ', el('a', { href: '#originales', onclick: close }, 'Cargá un recorte en Mis originales'), '.'),

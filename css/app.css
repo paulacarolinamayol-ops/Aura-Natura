@@ -537,3 +537,13 @@ textarea.input { resize: vertical; line-height: 1.45; }
   .editor-panel { width: auto; max-height: none; }
   .canvas-stage { width: min(100%, calc((100vh - 260px) * var(--ratio))); }
 }
+
+/* Recortes sin fondo: cuadriculado detrás, para que se vea qué es transparente */
+.tile-cutout, .is-cutout { background: repeating-conic-gradient(#E8DDCC 0 25%, #F7F4EC 0 50%) 0 0 / 18px 18px; }
+.tile-cutout img { object-fit: contain; }
+
+/* Mantener apretado en el iPad no selecciona texto ni abre el menú de la imagen */
+.tile, .chip, .btn, .nav-item, .piece-open, .picker-item, .ref-thumb, .layer-name, .format-pick, .swatch {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.tile img, .piece-cover img, .picker-thumb img, .stage-canvas { -webkit-touch-callout: none; }

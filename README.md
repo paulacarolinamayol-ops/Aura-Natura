@@ -53,7 +53,7 @@ Usarla instalada es importante: si se usa solo desde una pestaña de Safari, el 
 
 ## Pruebas de la Etapa 4 (en el iPad)
 
-1. Hacé un recorte de la esfera en Fotos (mantener apretada la esfera → Compartir → Guardar imagen) y cargalo en *Mis originales → Recortes sin fondo*.
+1. Hacé un recorte de la esfera en Fotos: mantené apretada la esfera, tocá **Copiar** y en *Mis originales* tocá **Pegar recorte**. (Elegido desde Fotos, el iPad puede convertir el recorte a JPG y el fondo vuelve; la app avisa. También sirve guardarlo en Archivos y cargarlo desde ahí.)
 2. En *Editor*, creá una publicación 4:5. Agregá de fondo una imagen de ChatGPT («Solo el fondo»), después la esfera y un texto.
 3. Mové la esfera con el dedo y agrandala o achicala con dos dedos. Probá la sombra.
 4. Destacá palabras del texto, cambiá la tipografía, el tamaño y los colores.
@@ -65,7 +65,7 @@ Usarla instalada es importante: si se usa solo desde una pestaña de Safari, el 
 
 - Los datos viven **solo en ese iPad**. No se sincronizan; el respaldo es la forma de pasarlos a otro dispositivo.
 - Si borrás la app de la pantalla de inicio, se borran sus datos. Por eso el respaldo es parte de esta etapa.
-- Al elegir fotos desde la app **Fotos**, el iPad puede entregar una copia JPG de una foto HEIC. Lo que guarda la app es exactamente lo que entrega el iPad.
+- Al elegir fotos desde la app **Fotos**, el iPad puede entregar una copia JPG de una foto HEIC. Lo que guarda la app es exactamente lo que entrega el iPad. En un recorte eso hace perder la transparencia: para recortes, usá **Pegar recorte** o cargalos desde Archivos.
 - El respaldo es un ZIP común: se puede abrir en la app Archivos para ver las fotos aunque la app no esté instalada.
 
 ## Tipografías

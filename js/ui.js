@@ -160,3 +160,23 @@ export function daysSince(iso) {
   if (!iso) return Infinity;
   return (Date.now() - new Date(iso).getTime()) / 86_400_000;
 }
+
+/**
+ * Lee una imagen copiada (por ejemplo, un recorte copiado en la app Fotos).
+ * Devuelve un File, o null si lo copiado no es una imagen.
+ * Una imagen copiada conserva la transparencia; elegida desde Fotos, el iPad a veces la convierte a JPG.
+ */
+export async function readClipboardImage() {
+  if (!navigator.clipboard || !navigator.clipboard.read) {
+    throw new Error('Este navegador no permite pegar imágenes. Guardá el recorte en Archivos y cargalo desde ahí.');
+  }
+  const items = await navigator.clipboard.read();
+  for (const item of items) {
+    const type = item.types.find((t) => t === 'image/png') || item.types.find((t) => t.startsWith('image/'));
+    if (!type) continue;
+    const blob = await item.getType(type);
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+    return new File([blob], `recorte-${stamp}.${type.split('/')[1] || 'png'}`, { type, lastModified: Date.now() });
+  }
+  return null;
+}

@@ -435,6 +435,32 @@ async function noHorizontalScroll(page) {
       await ctx.close();
     });
 
+    await step('Recortes: pegar uno copiado y avisar si una imagen llega con fondo', async () => {
+      const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+      await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: URL_BASE.slice(0, -1) });
+      const p = await ctx.newPage();
+      await p.goto(`${URL_BASE}#originales`);
+      await p.getByRole('button', { name: /^Recortes sin fondo/ }).click();
+      await p.locator('#photo-input').setInputFiles(path.join(FIXTURES, 'esfera-frente.jpg'));
+      await p.getByText('Este recorte llegó con fondo', { exact: false }).waitFor();
+
+      await p.evaluate(async () => {
+        const blob = await (await fetch('tests/fixtures/esfera-recorte.png')).blob();
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      });
+      await p.getByRole('button', { name: 'Pegar recorte' }).click();
+      await p.getByText('Recorte pegado, sin fondo').waitFor();
+      assert.equal(await p.locator('.tile').count(), 2);
+
+      await p.getByRole('link', { name: 'Editor' }).click();
+      await p.getByRole('button', { name: /Cuadrado 1:1/ }).click();
+      await p.getByRole('button', { name: 'Agregar esfera' }).click();
+      await p.getByRole('button', { name: 'Pegar recorte' }).click();
+      await p.getByRole('button', { name: 'Sombra' }).waitFor();
+      assert.equal(await p.locator('.layers .layer').count(), 1);
+      await ctx.close();
+    });
+
     await step('En pantalla de celular no hay desplazamiento lateral', async () => {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const p = await ctx.newPage();

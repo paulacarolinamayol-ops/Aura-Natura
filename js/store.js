@@ -88,7 +88,10 @@ export async function requestPersistence() {
 
 export async function thumbUrl(photo) {
   if (thumbUrls.has(photo.id)) return thumbUrls.get(photo.id);
-  const blob = (await db.get('blobs', `thumb:${photo.id}`)) || (await db.get('blobs', `orig:${photo.id}`));
+  // Las miniaturas son JPG y pierden la transparencia: los recortes se muestran con el original.
+  const blob = photo.category === 'recorte'
+    ? await db.get('blobs', `orig:${photo.id}`)
+    : (await db.get('blobs', `thumb:${photo.id}`)) || (await db.get('blobs', `orig:${photo.id}`));
   const url = blob ? URL.createObjectURL(blob) : null;
   thumbUrls.set(photo.id, url);
   return url;
@@ -113,6 +116,7 @@ export async function originalFile(photo) {
  */
 export async function addPhotos(files, category, onProgress) {
   const errors = [];
+  const added = [];
   let saved = 0;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -133,6 +137,7 @@ export async function addPhotos(files, category, onProgress) {
       };
       await db.savePhoto(photo, file, info ? info.thumb : null);
       state.photos.unshift(photo);
+      added.push(photo);
       saved++;
     } catch (error) {
       errors.push({ file: file.name, error });
@@ -142,12 +147,13 @@ export async function addPhotos(files, category, onProgress) {
   if (saved && state.persisted !== true) await requestPersistence();
   await refreshStorage();
   notify();
-  return { saved, errors };
+  return { saved, errors, photos: added };
 }
 
 export async function updatePhoto(id, changes) {
   const photo = state.photos.find((p) => p.id === id);
   if (!photo) return;
+  if (changes.category && changes.category !== photo.category) forgetThumb(id);
   Object.assign(photo, changes);
   await db.put('photos', photo);
   notify();
