@@ -1,0 +1,17 @@
+{
+  "name": "Estudio Aura",
+  "short_name": "Estudio Aura",
+  "description": "Identidad de marca y fotos originales de Aura Natura.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F7F4EC",
+  "theme_color": "#302C26",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
