@@ -2,6 +2,8 @@
 
 Aplicación de contenido de **Aura Natura**. Funciona en el navegador del iPad, se instala en la pantalla de inicio y guarda todo en el propio iPad, sin servicios pagos ni cuentas.
 
+**Abrir la app:** https://paulacarolinamayol-ops.github.io/Aura-Natura/
+
 ## Etapa 1: qué hace hoy
 
 - **Mi marca**: paleta (tocá un color para copiar su código), tipografías Fraunces y Manrope, logo, ficha del producto («Lo que la IA no toca») y voz de marca. La ficha y la voz se pueden editar.
