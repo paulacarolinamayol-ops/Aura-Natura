@@ -3,13 +3,14 @@
 // las portadas de la Biblioteca, la ficha de marca y un archivo "manifest.json"
 // que describe todo.
 //
-// Versión 2 agrega la Biblioteca. Un respaldo de versión 1 se puede restaurar igual.
+// Versión 2 agrega la Biblioteca y versión 3 los diseños del Editor.
+// Los respaldos de versiones anteriores se pueden restaurar igual.
 
 import * as db from './db.js';
 import { createZip, readZip, verifyEntry } from './zip.js';
 
 const FORMAT = 'estudio-aura-respaldo';
-const VERSION = 2;
+const VERSION = 3;
 
 function safeName(name) {
   return name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 120) || 'archivo';
@@ -29,6 +30,7 @@ Carpetas:
 - miniaturas: versiones chicas que usa la galería.
 - logo: tu logo.
 - portadas: las portadas de la Biblioteca.
+- editor: las imágenes propias de los diseños (por ejemplo, fondos de ChatGPT) y sus miniaturas.
 - manifest.json: nombres, categorías y ficha de marca. No lo edites.
 `;
 
@@ -38,6 +40,7 @@ export async function buildBackup(onProgress) {
   const brand = await db.get('settings', 'brand');
   const logo = await db.get('blobs', 'logo');
   const pieces = await db.getAll('pieces');
+  const designs = await db.getAll('designs');
   const entries = [{ name: 'LEEME.txt', data: README }];
   const manifest = {
     format: FORMAT,
@@ -47,6 +50,8 @@ export async function buildBackup(onProgress) {
     logo: null,
     photos: [],
     pieces: [],
+    designs: [],
+    assets: [],
   };
 
   for (let i = 0; i < photos.length; i++) {
@@ -74,6 +79,25 @@ export async function buildBackup(onProgress) {
       entries.push({ name: coverPath, data: cover });
     }
     manifest.pieces.push({ ...piece, coverPath });
+  }
+
+  const assetIds = [...new Set(designs.flatMap((d) => d.layers.filter((l) => l.source && l.source.kind === 'asset').map((l) => l.source.id)))];
+  for (const id of assetIds) {
+    const blob = await db.get('blobs', `asset:${id}`);
+    if (!blob) continue;
+    const extension = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const path = `editor/imagenes/${id}.${safeName(extension)}`;
+    entries.push({ name: path, data: blob });
+    manifest.assets.push({ id, path, type: blob.type, name: blob.name || null });
+  }
+  for (const design of designs) {
+    const thumb = await db.get('blobs', `design-thumb:${design.id}`);
+    let thumbPath = null;
+    if (thumb) {
+      thumbPath = `editor/miniaturas/${design.id}.jpg`;
+      entries.push({ name: thumbPath, data: thumb });
+    }
+    manifest.designs.push({ ...design, thumbPath });
   }
 
   if (logo) {
@@ -109,6 +133,12 @@ export async function inspectBackup(file, onProgress) {
   for (const piece of pieces) {
     if (piece.coverPath) needed.push(piece.coverPath);
   }
+  const designs = manifest.designs || [];
+  const assets = manifest.assets || [];
+  for (const asset of assets) needed.push(asset.path);
+  for (const design of designs) {
+    if (design.thumbPath) needed.push(design.thumbPath);
+  }
   if (manifest.logo) needed.push(manifest.logo.path);
 
   for (let i = 0; i < needed.length; i++) {
@@ -122,6 +152,7 @@ export async function inspectBackup(file, onProgress) {
     createdAt: manifest.createdAt,
     photoCount: manifest.photos.length,
     pieceCount: pieces.length,
+    designCount: designs.length,
     hasLogo: Boolean(manifest.logo),
     hasBrand: Boolean(manifest.brand),
   };
@@ -142,13 +173,23 @@ export async function inspectBackup(file, onProgress) {
       restoredPieces.push(piece);
       if (coverPath) blobs.push([`cover:${piece.id}`, new Blob([await entries.get(coverPath).blob.arrayBuffer()], { type: 'image/jpeg' })]);
     }
+    const restoredDesigns = [];
+    for (const item of designs) {
+      const { thumbPath, ...design } = item;
+      restoredDesigns.push(design);
+      if (thumbPath) blobs.push([`design-thumb:${design.id}`, new Blob([await entries.get(thumbPath).blob.arrayBuffer()], { type: 'image/jpeg' })]);
+    }
+    for (const asset of assets) {
+      const data = await entries.get(asset.path).blob.arrayBuffer();
+      blobs.push([`asset:${asset.id}`, new File([data], asset.name || asset.path.split('/').pop(), { type: asset.type })]);
+    }
     if (manifest.logo) {
       const data = await entries.get(manifest.logo.path).blob.arrayBuffer();
       blobs.push(['logo', new File([data], manifest.logo.name || 'logo', { type: manifest.logo.type })]);
     }
     const settings = [['lastBackup', manifest.createdAt]];
     if (manifest.brand) settings.push(['brand', manifest.brand]);
-    await db.replaceAll({ photos, pieces: restoredPieces, blobs, settings });
+    await db.replaceAll({ photos, pieces: restoredPieces, designs: restoredDesigns, blobs, settings });
   }
 
   return { summary, apply };

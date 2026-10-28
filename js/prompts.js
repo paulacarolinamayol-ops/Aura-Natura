@@ -14,7 +14,7 @@ export const PROMPT_TYPES = [
   },
   {
     id: 'fondo', label: 'Solo el fondo', uses: ['goal', 'format', 'light', 'scene', 'textSpace'],
-    help: 'ChatGPT crea la escena vacía, sin la esfera. No adjuntes ninguna foto. En el Editor (Etapa 4) se pone encima tu esfera real.',
+    help: 'ChatGPT crea la escena vacía, sin la esfera. Usá un chat nuevo y no adjuntes fotos. Después, en el Editor, ponés encima tu esfera real.',
   },
 ];
 
@@ -100,7 +100,7 @@ export function buildPrompt(rawOptions, brand, palette) {
 
   if (options.type === 'fondo') {
     return [
-      'Generá una imagen nueva desde cero. No edites ninguna foto.',
+      'Generá una imagen nueva desde cero. No edites ninguna foto y no uses ninguna imagen anterior de esta conversación.',
       'Es un fondo para un producto: la imagen NO tiene que incluir la esfera ni ningún otro producto. El producto real se agrega después, encima de esta imagen.',
       '',
       'Cómo tiene que ser la escena:',

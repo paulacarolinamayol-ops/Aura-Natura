@@ -6,6 +6,7 @@ import { renderMarca } from './views/marca.js';
 import { renderOriginales } from './views/originales.js';
 import { renderBiblioteca } from './views/biblioteca.js';
 import { renderInstrucciones } from './views/instrucciones.js';
+import { renderEditor } from './views/editor.js';
 import { renderRespaldo } from './views/respaldo.js';
 
 const SCREENS = {
@@ -13,20 +14,25 @@ const SCREENS = {
   originales: { label: 'Mis originales', icon: 'fotos', render: renderOriginales },
   biblioteca: { label: 'Biblioteca', icon: 'biblioteca', render: renderBiblioteca },
   instrucciones: { label: 'Instrucciones', icon: 'instrucciones', render: renderInstrucciones },
+  editor: { label: 'Editor', icon: 'editor', render: renderEditor },
   respaldo: { label: 'Respaldo', icon: 'respaldo', render: renderRespaldo },
 };
 
 // Lo que todavía no existe se muestra con su etapa y sin enlace.
 const UPCOMING = [
-  { label: 'Editor', icon: 'editor', stage: 'Etapa 4' },
   { label: 'Feed', icon: 'feed', stage: 'Etapa 5' },
 ];
 
 const REMINDER_DAYS = 7;
 
+// La dirección es #pantalla o #pantalla/detalle (por ejemplo, #editor/<id del diseño>).
+function route() {
+  const [name, detail] = location.hash.slice(1).split('/');
+  return SCREENS[name] ? { name, detail } : { name: 'marca', detail: undefined };
+}
+
 function currentScreen() {
-  const name = location.hash.slice(1);
-  return SCREENS[name] ? name : 'marca';
+  return route().name;
 }
 
 function render() {
@@ -35,7 +41,7 @@ function render() {
   const main = el('main', { class: 'main', id: 'main', tabindex: '-1' });
   const reminder = backupReminder();
   if (reminder) main.append(reminder);
-  SCREENS[screen].render(main);
+  SCREENS[screen].render(main, route().detail);
 
   const scroll = document.querySelector('.main') ? document.querySelector('.main').scrollTop : 0;
   app.replaceChildren(sidebar(screen), main);

@@ -89,3 +89,25 @@ export async function makeCover(file) {
     bitmap.close();
   }
 }
+
+/** true si la imagen tiene partes transparentes (por ejemplo, un recorte sin fondo). */
+export async function hasTransparency(blob) {
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(blob);
+  } catch {
+    return false;
+  }
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(bitmap, 0, 0, size, size);
+  bitmap.close();
+  const { data } = context.getImageData(0, 0, size, size);
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 250) return true;
+  }
+  return false;
+}

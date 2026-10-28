@@ -51,9 +51,10 @@ export function renderInstrucciones(root) {
         el('li', {}, 'En ChatGPT, adjuntá la foto y pegá la instrucción.'),
       ]
       : [
-        el('li', {}, 'Copiá la instrucción.'),
-        el('li', {}, 'En ChatGPT, pegala sin adjuntar ninguna foto.'),
-        el('li', {}, 'Guardá la imagen que te dé: en el Editor (Etapa 4) le vas a poner encima tu esfera real.'),
+        // En un chat donde ya hubo fotos, ChatGPT las vuelve a usar aunque no se adjunten.
+        el('li', {}, 'Abrí un chat nuevo en ChatGPT. Si podés, que sea temporal.'),
+        el('li', {}, 'Copiá la instrucción y pegala sin adjuntar ninguna foto.'),
+        el('li', {}, 'Guardá la imagen que te dé y usala de fondo en el ', el('a', { href: '#editor' }, 'Editor'), '.'),
       ]));
   }
   draw();

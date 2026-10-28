@@ -224,7 +224,7 @@ async function noHorizontalScroll(page) {
       await page.getByRole('radio', { name: 'Solo el fondo' }).click();
       assert.match(await prompt.textContent(), /NO tiene que incluir la esfera/);
       assert.equal(await page.getByRole('radiogroup', { name: 'Foto de referencia' }).count(), 0, '«Solo el fondo» no debe ofrecer foto');
-      await page.getByText('En ChatGPT, pegala sin adjuntar ninguna foto.').waitFor();
+      await page.getByText('Abrí un chat nuevo en ChatGPT. Si podés, que sea temporal.').waitFor();
       await page.getByRole('radio', { name: 'Historia o reel 9:16' }).click();
       assert.match(await prompt.textContent(), /1080 × 1920 px/);
       await page.getByRole('radio', { name: 'Cambiar el escenario' }).click();
@@ -249,6 +249,78 @@ async function noHorizontalScroll(page) {
       assert.equal(await page.getByRole('radio', { name: 'Caja de regalo' }).getAttribute('aria-checked'), 'true');
       await page.getByRole('img', { name: 'Foto de referencia: esfera-trasera' }).waitFor();
       await noHorizontalScroll(page);
+    });
+
+    await step('Etapa 4: armar un diseño con fondo, esfera recortada y texto, y exportar el PNG', async () => {
+      await page.getByRole('link', { name: 'Mis originales' }).click();
+      await page.getByRole('button', { name: /^Recortes sin fondo/ }).click();
+      await page.locator('#photo-input').setInputFiles(path.join(FIXTURES, 'esfera-recorte.png'));
+      await page.getByText('Foto guardada').waitFor();
+
+      await page.getByRole('link', { name: 'Editor' }).click();
+      await page.getByText('Todavía no hay diseños.').waitFor();
+      await page.getByRole('button', { name: /Publicación 4:5/ }).click();
+      await page.locator('#design-name').fill('Mesa de luz');
+      await page.locator('#background-input').setInputFiles(path.join(FIXTURES, 'esfera-frente.jpg'));
+      await page.getByRole('heading', { name: 'Fondo', exact: true }).waitFor();
+
+      await page.getByRole('button', { name: 'Agregar esfera' }).click();
+      await page.getByRole('button', { name: 'esfera-trasera, Trasera' }).click();
+      await page.getByText('Esta foto tiene fondo.', { exact: false }).waitFor();
+      await page.getByRole('button', { name: 'Agregar esfera' }).click();
+      await page.getByRole('button', { name: 'esfera-recorte, Recortes sin fondo' }).click();
+      await page.getByRole('button', { name: 'Sombra' }).waitFor();
+
+      const canvas = page.locator('.stage-canvas');
+      const box = await canvas.boundingBox();
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.62);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.7, { steps: 5 });
+      await page.mouse.up();
+
+      await page.getByRole('button', { name: 'Agregar texto' }).click();
+      await page.locator('#text-content').fill('Tus recuerdos siempre cerca');
+      await page.getByRole('button', { name: 'cerca', exact: true }).click();
+      assert.equal(await page.getByRole('button', { name: 'cerca', exact: true }).getAttribute('aria-pressed'), 'true');
+      await page.locator('#text-size').fill('90');
+
+      const layers = page.locator('.layers .layer');
+      assert.equal(await layers.count(), 4, 'deberían ser 4 capas: texto, esfera de prueba, esfera recortada y fondo');
+      await page.getByRole('button', { name: 'Quitar Esfera' }).last().click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Quitar' }).click();
+      assert.equal(await layers.count(), 3);
+
+      await page.getByRole('button', { name: 'Exportar PNG' }).click();
+      await page.getByRole('img', { name: 'Vista previa de la imagen exportada' }).waitFor();
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.getByRole('button', { name: 'Guardar imagen' }).click(),
+      ]);
+      assert.equal(download.suggestedFilename(), 'mesa-de-luz-1080x1350.png');
+      const png = fs.readFileSync(await download.path());
+      assert.equal(png.readUInt32BE(16), 1080, 'el PNG no tiene 1080 de ancho');
+      assert.equal(png.readUInt32BE(20), 1350, 'el PNG no tiene 1350 de alto');
+      await noHorizontalScroll(page);
+    });
+
+    await step('Mis diseños: se guarda, se reabre, se duplica y se elimina', async () => {
+      await page.waitForTimeout(900); // guardado automático
+      await page.reload();
+      await page.locator('#design-name').waitFor();
+      assert.equal(await page.locator('#design-name').inputValue(), 'Mesa de luz');
+      assert.equal(await page.locator('.layers .layer').count(), 3);
+      await page.getByRole('link', { name: '← Mis diseños' }).click();
+      await page.getByRole('link', { name: 'Abrir Mesa de luz' }).waitFor();
+      await page.getByRole('button', { name: 'Duplicar' }).click();
+      await page.getByRole('link', { name: 'Abrir Mesa de luz (copia)' }).waitFor();
+      await page.getByRole('button', { name: 'Eliminar Mesa de luz (copia)' }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Cancelar' }).click();
+      await page.getByRole('alertdialog').waitFor({ state: 'detached' });
+      assert.equal(await page.locator('.design-card').count(), 2);
+      await page.getByRole('button', { name: 'Eliminar Mesa de luz (copia)' }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Eliminar diseño' }).click();
+      await page.getByText('Diseño eliminado').waitFor();
+      assert.equal(await page.locator('.design-card').count(), 1);
     });
 
     let backupPath;
@@ -286,13 +358,13 @@ async function noHorizontalScroll(page) {
       await p.goto(`${URL_BASE}#respaldo`);
       await p.getByText('Todavía no hiciste ningún respaldo.').waitFor();
       await p.locator('#restore-input').setInputFiles(backupPath);
-      await p.getByRole('alertdialog').getByText(/2 fotos, 2 piezas de la Biblioteca, logo y ficha de marca/).waitFor();
+      await p.getByRole('alertdialog').getByText(/3 fotos, 2 piezas de la Biblioteca, 1 diseño, logo y ficha de marca/).waitFor();
       await p.getByRole('button', { name: 'Restaurar' }).click();
-      await p.getByText('Respaldo restaurado: 2 fotos y 2 piezas').waitFor();
+      await p.getByText('Respaldo restaurado: 3 fotos, 2 piezas y 1 diseño').waitFor();
 
       await p.getByRole('link', { name: 'Mis originales' }).click();
-      await p.getByText('2 fotos reales · se guardan sin cambios').waitFor();
-      assert.equal(await p.locator('.tile').count(), 2);
+      await p.getByText('3 fotos reales · se guardan sin cambios').waitFor();
+      assert.equal(await p.locator('.tile').count(), 3);
       await p.getByRole('button', { name: /^Trasera/ }).click();
       assert.equal(await p.locator('.tile').count(), 1);
       await p.getByRole('button', { name: 'Abrir esfera-trasera' }).click();
@@ -310,6 +382,18 @@ async function noHorizontalScroll(page) {
       await p.locator('.piece', { hasText: 'Un regalo que se siente' }).getByText('En Instagram y Meta Ads desde el 19 oct').waitFor();
       await p.locator('.piece', { hasText: 'El abrazo de los tuyos' }).locator('.funnel-bofu').waitFor();
       assert.equal(await p.getByRole('button', { name: 'Quitar El abrazo de los tuyos de favoritos' }).count(), 1);
+
+      await p.getByRole('link', { name: 'Editor' }).click();
+      await p.getByRole('link', { name: 'Abrir Mesa de luz' }).click();
+      await p.locator('#design-name').waitFor();
+      assert.equal(await p.locator('.layers .layer').count(), 3);
+      await p.getByRole('button', { name: 'Exportar PNG' }).click();
+      await p.getByRole('img', { name: 'Vista previa de la imagen exportada' }).waitFor();
+      const restoredOk = await p.getByRole('img', { name: 'Vista previa de la imagen exportada' }).evaluate((img) => new Promise((resolve) => {
+        const check = () => resolve(img.naturalWidth === 1080 && img.naturalHeight === 1350);
+        if (img.complete) check(); else img.onload = check;
+      }));
+      assert.ok(restoredOk, 'el diseño restaurado no exporta bien');
       await fresh.close();
     });
 
@@ -354,7 +438,7 @@ async function noHorizontalScroll(page) {
     await step('En pantalla de celular no hay desplazamiento lateral', async () => {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const p = await ctx.newPage();
-      for (const screen of ['marca', 'originales', 'biblioteca', 'instrucciones', 'respaldo']) {
+      for (const screen of ['marca', 'originales', 'biblioteca', 'instrucciones', 'editor', 'respaldo']) {
         await p.goto(`${URL_BASE}#${screen}`);
         await p.locator('.main').waitFor();
         await noHorizontalScroll(p);
