@@ -225,7 +225,7 @@ function renderDesignEditor(root) {
           type: 'button', class: 'chip', role: 'radio', 'aria-checked': String(design.format === format.id),
           onclick: () => {
             if (design.format === format.id) return;
-            design.format = format.id;
+            changeFormat(design, format.id);
             persist(design).then(() => redraw());
           },
         }, format.label)))),
@@ -435,6 +435,26 @@ function renderDesignEditor(root) {
 
   drawPanel();
   loadAll(design).then(() => { draw(); drawPanel(); });
+}
+
+/**
+ * Cambia el formato manteniendo la composición: las capas conservan su altura relativa
+ * y un fondo que cubría el formato anterior pasa a cubrir el nuevo.
+ */
+export function changeFormat(design, formatId) {
+  const before = formatSize(design.format);
+  const after = formatSize(formatId);
+  const ratio = after.height / before.height;
+  for (const layer of design.layers) {
+    const covered = layer.role === 'fondo' && layer.aspect && layer.width >= coverWidth(layer.aspect, design.format) - 1;
+    layer.y *= ratio;
+    if (covered) {
+      layer.width = coverWidth(layer.aspect, formatId);
+      layer.x = after.width / 2;
+      layer.y = after.height / 2;
+    }
+  }
+  design.format = formatId;
 }
 
 function section(title, content) {

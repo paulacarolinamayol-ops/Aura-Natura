@@ -284,6 +284,14 @@ async function noHorizontalScroll(page) {
       assert.equal(await page.getByRole('button', { name: 'cerca', exact: true }).getAttribute('aria-pressed'), 'true');
       await page.locator('#text-size').fill('90');
 
+      // Al pasar a historia y volver, el fondo tiene que seguir cubriendo todo el formato.
+      await page.getByRole('radio', { name: 'Historia 9:16' }).click();
+      await page.getByRole('radio', { name: 'Historia 9:16', checked: true }).waitFor();
+      const topLeft = await page.locator('.stage-canvas').evaluate((c) => Array.from(c.getContext('2d').getImageData(2, 2, 1, 1).data));
+      assert.notDeepEqual(topLeft.slice(0, 3), [232, 221, 204], 'el fondo no cubre el formato nuevo');
+      await page.getByRole('radio', { name: 'Publicación 4:5' }).click();
+      await page.getByRole('radio', { name: 'Publicación 4:5', checked: true }).waitFor();
+
       const layers = page.locator('.layers .layer');
       assert.equal(await layers.count(), 4, 'deberían ser 4 capas: texto, esfera de prueba, esfera recortada y fondo');
       await page.getByRole('button', { name: 'Quitar Esfera' }).last().click();
