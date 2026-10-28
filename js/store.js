@@ -113,6 +113,7 @@ export async function originalFile(photo) {
  */
 export async function addPhotos(files, category, onProgress) {
   const errors = [];
+  const added = [];
   let saved = 0;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -133,6 +134,7 @@ export async function addPhotos(files, category, onProgress) {
       };
       await db.savePhoto(photo, file, info ? info.thumb : null);
       state.photos.unshift(photo);
+      added.push(photo);
       saved++;
     } catch (error) {
       errors.push({ file: file.name, error });
@@ -142,7 +144,7 @@ export async function addPhotos(files, category, onProgress) {
   if (saved && state.persisted !== true) await requestPersistence();
   await refreshStorage();
   notify();
-  return { saved, errors };
+  return { saved, errors, photos: added };
 }
 
 export async function updatePhoto(id, changes) {

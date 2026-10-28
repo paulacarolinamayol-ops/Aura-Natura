@@ -1,8 +1,11 @@
 // Pantalla "Mis originales": galería de fotos reales del producto.
 
-import { el, icon, toast, hideToast, confirmDialog, saveFile, formatBytes } from '../ui.js';
+import { el, icon, toast, hideToast, confirmDialog, saveFile, formatBytes, readClipboardImage } from '../ui.js';
 import { CATEGORIES, LIGHTS } from '../brand.js';
 import { state, addPhotos, updatePhoto, deletePhoto, thumbUrl, originalFile } from '../store.js';
+import { hasTransparency } from '../images.js';
+
+const NO_TRANSPARENCY = 'Este recorte llegó con fondo: el iPad lo convirtió a JPG. Probá copiarlo en Fotos y tocar «Pegar recorte», o cargarlo desde Archivos.';
 
 const view = {
   filter: 'todas',
@@ -25,7 +28,9 @@ export function renderOriginales(root) {
       el('h1', { class: 'display page-title' }, 'Mis ', el('em', {}, 'originales')),
       el('p', { class: 'hint' }, photos.length === 1 ? '1 foto real · se guarda sin cambios' : `${photos.length} fotos reales · se guardan sin cambios`)),
     input,
-    el('label', { for: 'photo-input', class: 'btn btn-primary' }, icon('mas', 18), 'Agregar fotos'));
+    el('div', { class: 'edit-actions' },
+      el('button', { type: 'button', class: 'btn btn-quiet', onclick: () => pasteCutout() }, icon('copiar', 18), 'Pegar recorte'),
+      el('label', { for: 'photo-input', class: 'btn btn-primary' }, icon('mas', 18), 'Agregar fotos')));
 
   const filters = el('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrar por categoría' },
     [{ id: 'todas', label: 'Todas' }, ...CATEGORIES].map((cat) => {
@@ -152,10 +157,14 @@ async function importFiles(files, input) {
   if (!files.length) return;
   const category = CATEGORIES.some((c) => c.id === view.filter) ? view.filter : 'sin';
   toast(`Guardando 0 de ${files.length}…`, { persist: true });
-  const { saved, errors } = await addPhotos(files, category, (doneCount, total) => {
+  const { saved, errors, photos } = await addPhotos(files, category, (doneCount, total) => {
     toast(`Guardando ${doneCount} de ${total}…`, { persist: true });
   });
   hideToast();
+  if (category === 'recorte' && !(await allTransparent(photos, files))) {
+    toast(NO_TRANSPARENCY);
+    return;
+  }
   if (errors.length) {
     const quota = errors.some((e) => e.error && e.error.name === 'QuotaExceededError');
     toast(quota
@@ -164,6 +173,35 @@ async function importFiles(files, input) {
   } else {
     toast(saved === 1 ? 'Foto guardada' : `${saved} fotos guardadas`);
   }
+}
+
+async function allTransparent(photos, files) {
+  for (const photo of photos) {
+    const file = files.find((f) => f.name === photo.fileName) || null;
+    if (file && !(await hasTransparency(file))) return false;
+  }
+  return true;
+}
+
+/** Pega un recorte copiado (por ejemplo, desde la app Fotos) en «Recortes sin fondo». */
+export async function pasteCutout() {
+  let file;
+  try {
+    file = await readClipboardImage();
+  } catch (error) {
+    toast(error && error.name === 'NotAllowedError' ? 'El iPad no dejó pegar. Tocá «Permitir» o «Pegar» cuando aparezca.' : error.message);
+    return null;
+  }
+  if (!file) {
+    toast('No hay una imagen copiada. En Fotos, mantené apretada la esfera y tocá «Copiar».');
+    return null;
+  }
+  view.filter = 'recorte';
+  const { photos } = await addPhotos([file], 'recorte');
+  const photo = photos[0] || null;
+  if (!photo) { toast('No se pudo guardar el recorte.'); return null; }
+  toast((await hasTransparency(file)) ? 'Recorte pegado, sin fondo' : NO_TRANSPARENCY);
+  return photo;
 }
 
 function redraw() {
