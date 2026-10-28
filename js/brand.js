@@ -28,6 +28,27 @@ export const LIGHTS = [
   { id: 'lampara', label: 'Luz de lámpara' },
 ];
 
+// Biblioteca: etapas del recorrido del cliente, formatos y lugares de publicación.
+export const FUNNEL = [
+  { id: 'tofu', label: 'TOFU', help: 'Descubrimiento: gente que todavía no te conoce' },
+  { id: 'mofu', label: 'MOFU', help: 'Consideración: gente que te está evaluando' },
+  { id: 'bofu', label: 'BOFU', help: 'Compra: gente lista para comprar' },
+];
+
+export const FORMATS = [
+  { id: 'video', label: 'Video' },
+  { id: 'estatico', label: 'Estático' },
+  { id: 'carrusel', label: 'Carrusel' },
+  { id: 'historia', label: 'Historia' },
+];
+
+export const CHANNELS = [
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'tiktok', label: 'TikTok' },
+  { id: 'meta', label: 'Meta Ads' },
+  { id: 'web', label: 'Web' },
+];
+
 export function defaultBrand() {
   return {
     rules: [

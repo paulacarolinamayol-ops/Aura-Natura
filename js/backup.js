@@ -1,12 +1,15 @@
 // Respaldo y restauración.
 // El respaldo es un ZIP con: las fotos originales, sus miniaturas, el logo,
-// la ficha de marca y un archivo "manifest.json" que describe todo.
+// las portadas de la Biblioteca, la ficha de marca y un archivo "manifest.json"
+// que describe todo.
+//
+// Versión 2 agrega la Biblioteca. Un respaldo de versión 1 se puede restaurar igual.
 
 import * as db from './db.js';
 import { createZip, readZip, verifyEntry } from './zip.js';
 
 const FORMAT = 'estudio-aura-respaldo';
-const VERSION = 1;
+const VERSION = 2;
 
 function safeName(name) {
   return name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 120) || 'archivo';
@@ -25,6 +28,7 @@ Carpetas:
 - originales: tus fotos tal como las cargaste, sin cambios.
 - miniaturas: versiones chicas que usa la galería.
 - logo: tu logo.
+- portadas: las portadas de la Biblioteca.
 - manifest.json: nombres, categorías y ficha de marca. No lo edites.
 `;
 
@@ -33,6 +37,7 @@ export async function buildBackup(onProgress) {
   const photos = await db.getAll('photos');
   const brand = await db.get('settings', 'brand');
   const logo = await db.get('blobs', 'logo');
+  const pieces = await db.getAll('pieces');
   const entries = [{ name: 'LEEME.txt', data: README }];
   const manifest = {
     format: FORMAT,
@@ -41,6 +46,7 @@ export async function buildBackup(onProgress) {
     brand: brand || null,
     logo: null,
     photos: [],
+    pieces: [],
   };
 
   for (let i = 0; i < photos.length; i++) {
@@ -57,6 +63,17 @@ export async function buildBackup(onProgress) {
       entries.push({ name: thumbPath, data: thumb });
     }
     manifest.photos.push({ ...photo, originalPath, thumbPath });
+  }
+
+  for (let i = 0; i < pieces.length; i++) {
+    const piece = pieces[i];
+    const cover = await db.get('blobs', `cover:${piece.id}`);
+    let coverPath = null;
+    if (cover) {
+      coverPath = `portadas/${String(i + 1).padStart(3, '0')}.jpg`;
+      entries.push({ name: coverPath, data: cover });
+    }
+    manifest.pieces.push({ ...piece, coverPath });
   }
 
   if (logo) {
@@ -88,6 +105,10 @@ export async function inspectBackup(file, onProgress) {
     needed.push(photo.originalPath);
     if (photo.thumbPath) needed.push(photo.thumbPath);
   }
+  const pieces = manifest.pieces || [];
+  for (const piece of pieces) {
+    if (piece.coverPath) needed.push(piece.coverPath);
+  }
   if (manifest.logo) needed.push(manifest.logo.path);
 
   for (let i = 0; i < needed.length; i++) {
@@ -100,6 +121,7 @@ export async function inspectBackup(file, onProgress) {
   const summary = {
     createdAt: manifest.createdAt,
     photoCount: manifest.photos.length,
+    pieceCount: pieces.length,
     hasLogo: Boolean(manifest.logo),
     hasBrand: Boolean(manifest.brand),
   };
@@ -114,13 +136,19 @@ export async function inspectBackup(file, onProgress) {
       blobs.push([`orig:${photo.id}`, new Blob([await original.arrayBuffer()], { type: photo.type })]);
       if (thumbPath) blobs.push([`thumb:${photo.id}`, new Blob([await entries.get(thumbPath).blob.arrayBuffer()], { type: 'image/jpeg' })]);
     }
+    const restoredPieces = [];
+    for (const item of pieces) {
+      const { coverPath, ...piece } = item;
+      restoredPieces.push(piece);
+      if (coverPath) blobs.push([`cover:${piece.id}`, new Blob([await entries.get(coverPath).blob.arrayBuffer()], { type: 'image/jpeg' })]);
+    }
     if (manifest.logo) {
       const data = await entries.get(manifest.logo.path).blob.arrayBuffer();
       blobs.push(['logo', new File([data], manifest.logo.name || 'logo', { type: manifest.logo.type })]);
     }
     const settings = [['lastBackup', manifest.createdAt]];
     if (manifest.brand) settings.push(['brand', manifest.brand]);
-    await db.replaceAll({ photos, blobs, settings });
+    await db.replaceAll({ photos, pieces: restoredPieces, blobs, settings });
   }
 
   return { summary, apply };

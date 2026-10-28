@@ -6,9 +6,11 @@ import { describeImage } from './images.js';
 
 const listeners = new Set();
 const thumbUrls = new Map();
+const coverUrls = new Map();
 
 export const state = {
   photos: [],
+  pieces: [],
   brand: defaultBrand(),
   logo: null,
   logoUrl: null,
@@ -38,6 +40,7 @@ function byNewest(a, b) {
 
 export async function load() {
   state.photos = (await db.getAll('photos')).sort(byNewest);
+  state.pieces = sortPieces(await db.getAll('pieces'));
   state.brand = (await db.get('settings', 'brand')) || defaultBrand();
   state.lastBackup = (await db.get('settings', 'lastBackup')) || null;
   await loadLogo();
@@ -180,5 +183,56 @@ export async function markBackup() {
 /** Después de restaurar: vuelve a leer todo desde la base de datos. */
 export async function reload() {
   for (const id of [...thumbUrls.keys()]) forgetThumb(id);
+  for (const id of [...coverUrls.keys()]) forgetCover(id);
   await load();
+}
+
+// Biblioteca
+
+function sortPieces(pieces) {
+  return pieces.sort((a, b) => (b.publishedOn || '').localeCompare(a.publishedOn || '') || b.addedAt.localeCompare(a.addedAt));
+}
+
+export async function coverUrl(piece) {
+  if (coverUrls.has(piece.id)) return coverUrls.get(piece.id);
+  const blob = await db.get('blobs', `cover:${piece.id}`);
+  const url = blob ? URL.createObjectURL(blob) : null;
+  coverUrls.set(piece.id, url);
+  return url;
+}
+
+function forgetCover(id) {
+  const url = coverUrls.get(id);
+  if (url) URL.revokeObjectURL(url);
+  coverUrls.delete(id);
+}
+
+/** Crea o actualiza una pieza. cover es opcional: si no viene, se mantiene la anterior. */
+export async function savePiece(data, cover) {
+  const existing = data.id ? state.pieces.find((p) => p.id === data.id) : null;
+  const piece = existing
+    ? { ...existing, ...data, updatedAt: new Date().toISOString() }
+    : { favorite: false, ...data, id: newId(), addedAt: new Date().toISOString() };
+  await db.savePiece(piece, cover);
+  if (cover) forgetCover(piece.id);
+  state.pieces = sortPieces([...state.pieces.filter((p) => p.id !== piece.id), piece]);
+  await refreshStorage();
+  notify();
+  return piece;
+}
+
+export async function toggleFavorite(id) {
+  const piece = state.pieces.find((p) => p.id === id);
+  if (!piece) return;
+  piece.favorite = !piece.favorite;
+  await db.put('pieces', piece);
+  notify();
+}
+
+export async function deletePiece(id) {
+  await db.deletePiece(id);
+  forgetCover(id);
+  state.pieces = state.pieces.filter((p) => p.id !== id);
+  await refreshStorage();
+  notify();
 }

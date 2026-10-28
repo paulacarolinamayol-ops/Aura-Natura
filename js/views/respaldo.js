@@ -21,7 +21,7 @@ function backupCard() {
     el('span', { class: 'card-icon' }, icon('respaldo', 22)),
     el('h2', { id: 'backup-title', class: 'display card-title' }, 'Hacer un respaldo'),
     el('p', {}, last ? `Último respaldo: ${last}.` : 'Todavía no hiciste ningún respaldo.'),
-    el('p', { class: 'hint' }, `Incluye ${state.photos.length} ${state.photos.length === 1 ? 'foto original' : 'fotos originales'}, tu logo y la ficha de marca. Guardalo en Archivos o en iCloud Drive.`));
+    el('p', { class: 'hint' }, `Incluye ${plural(state.photos.length, 'foto original', 'fotos originales')}, ${plural(state.pieces.length, 'pieza', 'piezas')} de la Biblioteca, tu logo y la ficha de marca. Guardalo en Archivos o en iCloud Drive.`));
 
   if (readyBackup) {
     card.append(
@@ -82,8 +82,8 @@ async function restoreFrom(file) {
   const ok = await confirmDialog({
     title: '¿Restaurar este respaldo?',
     body: el('div', {},
-      el('p', {}, `Respaldo del ${created}: ${summary.photoCount} ${summary.photoCount === 1 ? 'foto' : 'fotos'}${summary.hasLogo ? ', logo' : ''}${summary.hasBrand ? ' y ficha de marca' : ''}.`),
-      el('p', {}, `Lo que hay ahora en la app (${state.photos.length} ${state.photos.length === 1 ? 'foto' : 'fotos'}) se reemplaza por el contenido del respaldo.`)),
+      el('p', {}, `Respaldo del ${created}: ${plural(summary.photoCount, 'foto', 'fotos')}, ${plural(summary.pieceCount, 'pieza', 'piezas')} de la Biblioteca${summary.hasLogo ? ', logo' : ''}${summary.hasBrand ? ' y ficha de marca' : ''}.`),
+      el('p', {}, `Lo que hay ahora en la app (${plural(state.photos.length, 'foto', 'fotos')} y ${plural(state.pieces.length, 'pieza', 'piezas')}) se reemplaza por el contenido del respaldo.`)),
     confirmLabel: 'Restaurar',
   });
   if (!ok) return;
@@ -91,7 +91,7 @@ async function restoreFrom(file) {
   try {
     await inspected.apply();
     await reload();
-    toast(`Respaldo restaurado: ${summary.photoCount} ${summary.photoCount === 1 ? 'foto' : 'fotos'}`);
+    toast(`Respaldo restaurado: ${plural(summary.photoCount, 'foto', 'fotos')} y ${plural(summary.pieceCount, 'pieza', 'piezas')}`);
   } catch (error) {
     toast(error && error.name === 'QuotaExceededError'
       ? 'No hay espacio suficiente en el iPad. No se cambió nada.'
@@ -137,6 +137,10 @@ function installCard() {
           el('li', {}, 'En Safari, tocá el botón Compartir.'),
           el('li', {}, 'Elegí «Agregar a pantalla de inicio».'),
           el('li', {}, 'Abrí Estudio Aura desde su ícono. Sin instalarla, el iPad puede borrar los datos si pasan varios días sin usarla.'))));
+}
+
+function plural(count, one, many) {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
 function redraw() {

@@ -19,7 +19,7 @@ export function el(tag, attrs = {}, ...children) {
 }
 
 /** Ícono de línea. Los trazos usan el color del texto. */
-export function icon(name, size = 20) {
+export function icon(name, size = 20, { filled = false } = {}) {
   const paths = {
     marca: '<circle cx="12" cy="11" r="7"/><path d="M8 20h8"/>',
     fotos: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 8"/>',
@@ -40,11 +40,15 @@ export function icon(name, size = 20) {
     aviso: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/>',
     almacen: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     compartir: '<path d="M12 3v12M7 8l5-5 5 5M5 13v7h14v-7"/>',
+    biblioteca: '<path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="m16 5 3.5-1 3 15.5-3.5 1z"/>',
+    estrella: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>',
+    enlace: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    buscar: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
   };
   const span = document.createElement('span');
   span.className = 'icon';
   span.setAttribute('aria-hidden', 'true');
-  span.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || ''}</svg>`;
+  span.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || ''}</svg>`;
   return span;
 }
 
